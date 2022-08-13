@@ -1,0 +1,13 @@
+/node_modules
+/dist
+/.project
+npm-debug*.log
+/generated
+/coverage
+npm-debug.log.*
+debug.log
+package-lock.json
+error.log
+**/.DS_Store
+src/.DS_Store
+gulp-tsc-tmp-*
