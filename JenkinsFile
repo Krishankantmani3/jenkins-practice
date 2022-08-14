@@ -9,80 +9,17 @@ node {
             }
 
             stage("Build") {
-                docker.withRegistry("http://${env.REGISTRY_URL}") {
-                    app = docker.build("${env.REGISTRY_URL}/cz-proxy-" + "${env.TYPE}:" + "${env.BUILD_NUMBER}", "--label 'ENV=${env.TYPE}' --label 'TYPE=proxy' -f Dockerfile .")
-                    app.push()
-                }
-
-                sh("docker image prune -a --force --filter 'until=24h' --filter 'label=ENV=${env.TYPE}' --filter 'label=TYPE=proxy'")
+                sh("echo 'Hello jenkins' > /log.txt ")
             }
 
             stage("Deploy To Server") {
-                withCredentials([file(credentialsId: "${env.PROXY_SERVER_SSH_KEY_FILE}", variable: "SSHKEY")]) {
-
-                    withCredentials([file(credentialsId: "${env.PROXY_CONFIG_FILE_ID}", variable: "PROXYCONFIG")]) {
-                        sh("scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${SSHKEY} ${PROXYCONFIG} ubuntu@${env.PROXY_SERVER_IP}:/home/ubuntu/.codezinger/proxy.config.json")
-                    }
-
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker image prune -af || true")
-                    sh("sleep 10")
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker pull ${env.REGISTRY_URL}/cz-proxy-" + "${env.TYPE}:" + "${env.BUILD_NUMBER}")
-                    sh("sleep 10")
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker stop proxy-server || true")
-                    sh("sleep 10")
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker rm proxy-server || true ")
-                    sh("sleep 10")
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker run -v /home/ubuntu/.codezinger/keys:/root/.ssh -v /home/ubuntu/.codezinger/proxy.config.json:/proxy.config.json --name proxy-server -p 40000:40000  --restart always -d ${env.REGISTRY_URL}/cz-proxy-" + "${env.TYPE}:" + "${env.BUILD_NUMBER}")
-                    sh("sleep 10")
-
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker stop proxy-server2 || true")
-                    sh("sleep 10")
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker rm proxy-server2 || true ")
-                    sh("sleep 10")
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker run -v /home/ubuntu/.codezinger/keys:/root/.ssh -v /home/ubuntu/.codezinger/proxy.config.json:/proxy.config.json --name proxy-server2 -p 40001:40001  --restart always -d ${env.REGISTRY_URL}/cz-proxy-" + "${env.TYPE}:" + "${env.BUILD_NUMBER}")
-                    sh("sleep 10")
-
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker stop proxy-server3 || true")
-                    sh("sleep 10")
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker rm proxy-server3 || true ")
-                    sh("sleep 10")
-                    sh("ssh -o StrictHostKeyChecking=no -i ${SSHKEY} ubuntu@${env.PROXY_SERVER_IP} docker run -v /home/ubuntu/.codezinger/keys:/root/.ssh -v /home/ubuntu/.codezinger/proxy.config.json:/proxy.config.json --name proxy-server3 -p 40002:40002  --restart always -d ${env.REGISTRY_URL}/cz-proxy-" + "${env.TYPE}:" + "${env.BUILD_NUMBER}")
-                    sh("sleep 10")
-                }
+                sh("echo 'deploying to server' >> /log.txt")    
             }
-
-            notifySuccessful()
+            
         }
+
     } catch (e) {
         currentBuild.result = "FAILED"
-        notifyFailed()
         throw e
     }
-
-}
-
-def notifySuccessful() {
-    slackSend (color: '#00FF00', message: "Build deployed successfully - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)")
-    emailext (
-        subject: "SUCCESSFUL: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]",
-        body: "<p>SUCCESSFUL: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]:</p><p>Check console output at <a href=\"${env.BUILD_URL}\">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>",
-        to: "${env.DEPLOYMENT_NOTIFICATION_EMAIL_ID}",
-        recipientProviders: [culprits()],
-        attachLog: true,
-        mimeType: 'text/html',
-        attachmentsPattern: 'test/reports/**/*.zip'
-    )
-}
-
-def notifyFailed() {
-    slackSend (color: '#FF0000', message: "Build FAILED - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)")
-    emailext (
-        subject: "FAILED: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]",
-        body: "<p>FAILED: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]:</p><p>Check console output at <a href=\"${env.BUILD_URL}\">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>",
-        to: "${env.DEPLOYMENT_NOTIFICATION_EMAIL_ID}",
-        recipientProviders: [culprits()],
-        attachLog: true,
-        mimeType: 'text/html',
-        attachmentsPattern: 'test/reports/**/*.zip'
-    )
 }
